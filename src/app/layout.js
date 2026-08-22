@@ -13,7 +13,7 @@ const geistMono = Geist_Mono({
 
 export const metadata = {
   title: "Shri Laxmi",
-  description: "Catalogue website for Shri Laxmi, the ethnic wear brand for women",
+  description: "Catalogue website for Shri laxmi the ethnic wear brand for women",
 };
 
 export default function RootLayout({ children }) {
