@@ -24,16 +24,17 @@ export default function Catalogue({ initialProducts }) {
       <Navbar />
 
       {/* Filters */}
-      <section className="max-w-6xl mx-auto px-4 md:px-8 py-6 w-full">
-        <div className="flex flex-row justify-between md:justify-start gap-4 md:gap-16 w-full">
-          <div className="flex flex-col w-1/2 md:w-auto overflow-hidden">
-            <h3 className="text-xs font-semibold tracking-wider text-gray-400 mb-3 uppercase text-left">Category</h3>
+      <section className="max-w-6xl mx-auto px-4 md:px-8 py-4 w-full">
+        <div className="flex flex-row justify-between gap-4 md:gap-8 w-full">
+          {/* First half: Category */}
+          <div className="flex flex-col w-1/2 overflow-hidden">
+            <h3 className="text-[10px] md:text-xs font-semibold tracking-wider text-gray-400 mb-2 md:mb-3 uppercase text-left">Category</h3>
             <div className="flex overflow-x-auto pb-2 gap-2 no-scrollbar">
               {CATEGORIES.map(cat => (
                 <button
                   key={cat}
                   onClick={() => setSelectedCategory(cat)}
-                  className={`whitespace-nowrap px-4 py-2 rounded-full text-xs md:text-sm transition-colors border ${selectedCategory === cat ? 'bg-[#C17C6E] border-[#C17C6E] text-white' : 'bg-white border-[#E5E0D8] text-gray-600 hover:border-[#b08968]'}`}
+                  className={`whitespace-nowrap px-4 py-1.5 md:py-2 rounded-full text-xs md:text-sm transition-colors border ${selectedCategory === cat ? 'bg-[#C17C6E] border-[#C17C6E] text-white' : 'bg-white border-[#E5E0D8] text-gray-600 hover:border-[#b08968]'}`}
                 >
                   {cat}
                 </button>
@@ -41,14 +42,15 @@ export default function Catalogue({ initialProducts }) {
             </div>
           </div>
 
-          <div className="flex flex-col w-1/2 md:w-auto overflow-hidden">
-            <h3 className="text-xs font-semibold tracking-wider text-gray-400 mb-3 uppercase text-left">Size</h3>
+          {/* Second half: Size */}
+          <div className="flex flex-col w-1/2 overflow-hidden">
+            <h3 className="text-[10px] md:text-xs font-semibold tracking-wider text-gray-400 mb-2 md:mb-3 uppercase text-left">Size</h3>
             <div className="flex overflow-x-auto pb-2 gap-2 no-scrollbar">
               {SIZES.map(size => (
                 <button
                   key={size}
                   onClick={() => setSelectedSize(size)}
-                  className={`whitespace-nowrap px-4 py-2 rounded-full text-xs md:text-sm transition-colors border ${selectedSize === size ? 'bg-[#C17C6E] border-[#C17C6E] text-white' : 'bg-white border-[#E5E0D8] text-gray-600 hover:border-[#b08968]'}`}
+                  className={`whitespace-nowrap px-4 py-1.5 md:py-2 rounded-full text-xs md:text-sm transition-colors border ${selectedSize === size ? 'bg-[#C17C6E] border-[#C17C6E] text-white' : 'bg-white border-[#E5E0D8] text-gray-600 hover:border-[#b08968]'}`}
                 >
                   {size}
                 </button>

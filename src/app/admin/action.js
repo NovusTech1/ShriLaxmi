@@ -14,8 +14,9 @@ export async function login(formData) {
       cookieStore.set('admin_session', 'true', {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
         maxAge: 60 * 60 * 24 * 7, // 7 days
-        path: '/', 
+        path: '/',
       });
       redirect('/admin/dashboard');
     } else {
@@ -24,10 +25,8 @@ export async function login(formData) {
   }
 
 export async function logout() {
-  // Correctly awaiting cookies for Next.js 15+
   const cookieStore = await cookies();
   cookieStore.delete('admin_session');
-  
   redirect('/admin/login');
 }
 
@@ -35,8 +34,18 @@ export async function logout() {
 
 const uploadImage = async (file) => {
   if (!file || file.size === 0) return null;
-  
-  const fileExt = file.name.split('.').pop();
+
+  // Guard: Vercel serverless limit is 4.5MB. Warn clearly.
+  if (file.size > 4 * 1024 * 1024) {
+    throw new Error(`Image "${file.name}" is too large (max 4MB). Please compress it before uploading.`);
+  }
+
+  const fileExt = file.name.split('.').pop().toLowerCase();
+  const allowedExts = ['jpg', 'jpeg', 'png', 'webp', 'gif'];
+  if (!allowedExts.includes(fileExt)) {
+    throw new Error(`File type ".${fileExt}" is not supported. Use JPG, PNG, or WEBP.`);
+  }
+
   const fileName = `${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
 
   const arrayBuffer = await file.arrayBuffer();
@@ -46,11 +55,12 @@ const uploadImage = async (file) => {
     .from('products')
     .upload(fileName, buffer, {
       contentType: file.type,
+      upsert: false,
     });
 
   if (uploadError) {
     console.error("Storage upload error:", uploadError);
-    throw uploadError;
+    throw new Error(`Image upload failed: ${uploadError.message}`);
   }
 
   const { data } = supabaseAdmin.storage
@@ -60,13 +70,31 @@ const uploadImage = async (file) => {
   return data.publicUrl;
 };
 
+// Helper: extract just the storage filename from a full Supabase public URL
+function extractStorageFileName(publicUrl) {
+  if (!publicUrl) return null;
+  try {
+    const url = new URL(publicUrl);
+    // Supabase public URL path: /storage/v1/object/public/<bucket>/<filename>
+    const parts = url.pathname.split('/');
+    // filename is the last segment
+    return parts[parts.length - 1];
+  } catch {
+    // Fallback to simple split
+    return publicUrl.split('/').pop().split('?')[0];
+  }
+}
+
 export async function addProduct(formData) {
+  // NOTE: redirect() must be OUTSIDE try/catch — it throws internally and must not be caught
+  let redirectPath = null;
+
   try {
     const category = formData.get('category');
     
     // Parse tags
     const tagsString = formData.get('tags');
-    const tags = tagsString ? tagsString.split(',').map(t => t.trim()) : [];
+    const tags = tagsString ? tagsString.split(',').map(t => t.trim()).filter(Boolean) : [];
     
     // Robust parsing for sizes
     const sizesData = formData.get('sizes');
@@ -102,14 +130,19 @@ export async function addProduct(formData) {
 
     if (error) {
       console.error("Database insert error:", error);
-      throw error;
+      throw new Error(`Database error: ${error.message}`);
     }
+
+    redirectPath = '/admin/dashboard';
   } catch (error) {
     console.error("Failed to add product:", error);
-    throw new Error('Failed to save product to database');
+    throw new Error(error.message || 'Failed to save product to database');
   }
-  
-  redirect('/admin/dashboard');
+
+  // redirect() is called OUTSIDE the try/catch so Next.js can handle it correctly
+  if (redirectPath) {
+    redirect(redirectPath);
+  }
 }
 
 // --- MANAGE PRODUCT ACTIONS ---
@@ -142,6 +175,7 @@ export async function updateProductSizes(productId, newSizes) {
 }
 
 export async function deleteProduct(productId) {
+  // Step 1: fetch the product's image URLs
   const { data: product, error: fetchError } = await supabaseAdmin
     .from('products')
     .select('image_1, image_2')
@@ -153,14 +187,14 @@ export async function deleteProduct(productId) {
     throw new Error('Failed to fetch product details for deletion');
   }
 
+  // Step 2: delete images from Supabase Storage using extracted filenames
   const filesToDelete = [];
   
-  if (product.image_1) {
-    filesToDelete.push(product.image_1.split('/').pop()); 
-  }
-  if (product.image_2) {
-    filesToDelete.push(product.image_2.split('/').pop());
-  }
+  const file1 = extractStorageFileName(product.image_1);
+  const file2 = extractStorageFileName(product.image_2);
+
+  if (file1) filesToDelete.push(file1);
+  if (file2) filesToDelete.push(file2);
 
   if (filesToDelete.length > 0) {
     const { error: storageError } = await supabaseAdmin.storage
@@ -168,10 +202,12 @@ export async function deleteProduct(productId) {
       .remove(filesToDelete);
       
     if (storageError) {
+      // Log but don't throw — still delete the DB record
       console.error("Failed to delete images from storage:", storageError);
     }
   }
 
+  // Step 3: delete the database record
   const { error: dbError } = await supabaseAdmin
     .from('products')
     .delete()

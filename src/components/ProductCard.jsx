@@ -44,13 +44,13 @@ export default function ProductCard({ product }) {
         )}
 
         {/* Sizes Bar */}
-        <div className="mt-auto pt-2 flex flex-nowrap gap-1 w-full">
+        <div className="mt-auto pt-2 grid grid-cols-3 gap-1 w-full">
           {PRODUCT_SIZES.map(size => {
             const isAvailable = product.sizes[size] === true;
             return (
               <div 
                 key={size} 
-                className={`flex flex-1 items-center justify-center h-6 text-[9px] rounded-md transition-all ${
+                className={`flex items-center justify-center py-1 text-[9px] rounded-md transition-all ${
                   isAvailable 
                     ? 'border border-[#C17C6E] text-[#3A3A3A] font-medium bg-white' 
                     : 'bg-gray-50 text-gray-300'

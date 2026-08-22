@@ -78,7 +78,7 @@ export default async function ProductPage({ params }) {
             {/* Available Sizes Box Grid */}
             <div className="mb-6">
               <h3 className="text-xs font-semibold tracking-wider text-gray-400 mb-3 uppercase">Available Sizes</h3>
-              <div className="grid grid-cols-6 gap-2 w-full">
+              <div className="grid grid-cols-3 md:grid-cols-6 gap-2 w-full">
                 {PRODUCT_SIZES.map(size => {
                   const isAvailable = product.sizes[size] === true;
                   return (

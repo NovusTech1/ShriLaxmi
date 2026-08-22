@@ -2,57 +2,67 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import Image from 'next/image';
-import { getAdminProducts,updateProductSizes,deleteProduct } from '../action';
 
 const SIZES = ["S", "M", "L", "XL", "XXL", "3XL"];
 
 export default function ManageProductsPage() {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
   useEffect(() => {
     fetchProducts();
   }, []);
 
   const fetchProducts = async () => {
+    setLoading(true);
+    setError('');
     try {
-      const data = await getAdminProducts();
+      const res = await fetch('/api/admin/products');
+      if (!res.ok) throw new Error('Failed to load products');
+      const data = await res.json();
       setProducts(data);
-    } catch (error) {
-      alert("Failed to load products.");
+    } catch (err) {
+      setError('Failed to load products. Please refresh.');
     } finally {
       setLoading(false);
     }
   };
 
   const handleSizeToggle = async (product, sizeToToggle) => {
-    // Optimistically update the UI so it feels instant
     const newSizes = { ...product.sizes, [sizeToToggle]: !product.sizes[sizeToToggle] };
     
-    setProducts(products.map(p => 
-      p.id === product.id ? { ...p, sizes: newSizes } : p
-    ));
+    // Optimistic UI update
+    setProducts(prev =>
+      prev.map(p => p.id === product.id ? { ...p, sizes: newSizes } : p)
+    );
 
-    // Send the update to Supabase in the background
     try {
-      await updateProductSizes(product.id, newSizes);
-    } catch (error) {
-      alert("Failed to save size update.");
+      const res = await fetch(`/api/admin/products/${product.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sizes: newSizes }),
+      });
+      if (!res.ok) throw new Error('Update failed');
+    } catch {
+      alert('Failed to save size update. Reverting...');
       fetchProducts(); // Revert UI on failure
     }
   };
 
   const handleDelete = async (productId) => {
-    if (!window.confirm("Are you sure you want to remove this product?")) return;
+    if (!window.confirm('Are you sure you want to remove this product?')) return;
     
-    // Remove from UI instantly
-    setProducts(products.filter(p => p.id !== productId));
+    // Optimistic UI remove
+    setProducts(prev => prev.filter(p => p.id !== productId));
 
     try {
-      await deleteProduct(productId);
-    } catch (error) {
-      alert("Failed to delete product.");
+      const res = await fetch(`/api/admin/products/${productId}`, {
+        method: 'DELETE',
+      });
+      if (!res.ok) throw new Error('Delete failed');
+    } catch {
+      alert('Failed to delete product. Reverting...');
       fetchProducts(); // Revert UI on failure
     }
   };
@@ -66,9 +76,21 @@ export default function ManageProductsPage() {
           </Link>
           <h1 className="text-xl font-medium">Manage Products</h1>
         </div>
+        <button
+          onClick={fetchProducts}
+          className="text-xs text-gray-400 hover:text-[#C17C6E] transition-colors border border-[#F0EBE1] px-3 py-1.5 rounded-md"
+        >
+          ↻ Refresh
+        </button>
       </header>
 
       <main className="max-w-4xl mx-auto">
+        {error && (
+          <div className="bg-red-50 border border-red-200 text-red-600 text-sm rounded-md p-4 mb-6">
+            {error}
+          </div>
+        )}
+
         {loading ? (
           <p className="text-gray-500">Loading catalogue...</p>
         ) : products.length === 0 ? (
@@ -110,7 +132,7 @@ export default function ManageProductsPage() {
                     <p className="text-[10px] tracking-wider text-gray-400 mb-2 uppercase">Tap to toggle availability</p>
                     <div className="flex flex-wrap gap-2">
                       {SIZES.map(size => {
-                        const isAvailable = product.sizes[size] === true;
+                        const isAvailable = product.sizes?.[size] === true;
                         return (
                           <button
                             key={size}
