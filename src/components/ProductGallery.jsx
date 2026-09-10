@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 
-export default function ProductGallery({ images, category }) {
+export default function ProductGallery({ images, colorVariants = [], category }) {
   const [currentIndex, setCurrentIndex] = useState(0);
 
   if (!images || images.length === 0) return null;
@@ -45,17 +45,27 @@ export default function ProductGallery({ images, category }) {
 
       {/* Thumbnail Bar for Desktop/Mobile Click Selection */}
       {images.length > 1 && (
-        <div className="flex gap-3">
-          {images.map((img, idx) => (
-            <button 
-              key={idx}
-              onClick={() => setCurrentIndex(idx)}
-              className={`relative w-20 aspect-[3/4] rounded-md overflow-hidden border-2 transition-all ${currentIndex === idx ? 'border-[#C17C6E] opacity-100' : 'border-transparent opacity-60 hover:opacity-100'}`}
-            >
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={img} alt="" className="object-cover w-full h-full" />
-            </button>
-          ))}
+        <div className="flex flex-wrap gap-4 mt-2">
+          {images.map((img, idx) => {
+            const variantColor = colorVariants[idx]?.color;
+            return (
+              <button 
+                key={idx}
+                onClick={() => setCurrentIndex(idx)}
+                className={`flex flex-col items-center gap-1.5 transition-all ${currentIndex === idx ? 'opacity-100' : 'opacity-60 hover:opacity-100'}`}
+              >
+                <div className={`relative w-16 md:w-20 aspect-[3/4] rounded-md overflow-hidden border-2 ${currentIndex === idx ? 'border-[#C17C6E]' : 'border-transparent'}`}>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={img} alt={variantColor || ''} className="object-cover w-full h-full" />
+                </div>
+                {variantColor && (
+                  <span className={`text-[10px] md:text-xs font-medium uppercase tracking-wider ${currentIndex === idx ? 'text-[#C17C6E]' : 'text-gray-500'}`}>
+                    {variantColor}
+                  </span>
+                )}
+              </button>
+            );
+          })}
         </div>
       )}
     </div>

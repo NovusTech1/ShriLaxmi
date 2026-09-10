@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
-import { updateProductSizes, deleteProduct } from '@/app/admin/action';
+import { deleteProduct } from '@/app/admin/action';
+import { supabaseAdmin } from '@/lib/supabase/server';
 import { cookies } from 'next/headers';
 import { verifySessionCookie } from '@/lib/session';
 
@@ -16,8 +17,11 @@ export async function PATCH(request, { params }) {
   }
   try {
     const { id } = await params;
-    const { sizes } = await request.json();
-    await updateProductSizes(id, sizes);
+    const { sizes, is_trending } = await request.json();
+    const updates = {};
+    if (sizes) updates.sizes = sizes;
+    if (typeof is_trending !== 'undefined') updates.is_trending = is_trending;
+    await supabaseAdmin.from('products').update(updates).eq('id', id);
     return NextResponse.json({ success: true });
   } catch (err) {
     console.error('PATCH /api/admin/products/[id] error:', err);

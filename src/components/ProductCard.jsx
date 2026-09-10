@@ -10,6 +10,11 @@ export default function ProductCard({ product }) {
       
       {/* Image Container */}
       <div className="relative aspect-[3/4] rounded-lg overflow-hidden bg-[#F0EBE1] mb-3">
+        {product.is_trending && (
+          <div className="absolute top-2 right-2 bg-[#C17C6E] text-white text-[9px] md:text-[10px] font-bold px-2 py-1 rounded shadow-md z-10 uppercase tracking-wider">
+            🌟 Featured
+          </div>
+        )}
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img 
           src={product.image_1} 
@@ -42,6 +47,7 @@ export default function ProductCard({ product }) {
             ))}
           </div>
         )}
+
 
         {/* Sizes Bar */}
         <div className="mt-auto pt-2 grid grid-cols-3 gap-1 w-full">

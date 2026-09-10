@@ -29,7 +29,11 @@ export default async function ProductPage({ params }) {
   }
 
   const isOutOfStock = !Object.values(product.sizes).some(val => val === true);
-  const images = [product.image_1, product.image_2].filter(Boolean);
+  
+  const colorVariants = product.color_variants || [];
+  const images = colorVariants.length > 0 
+    ? colorVariants.map(v => v.image_url) 
+    : [product.image_1, product.image_2].filter(Boolean);
 
   return (
     <div className="min-h-screen bg-[#FDFBF7] text-[#3A3A3A] font-sans pb-20">
@@ -50,7 +54,7 @@ export default async function ProductPage({ params }) {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8 md:gap-12 items-start bg-white p-6 md:p-8 rounded-2xl border border-[#F0EBE1]">
           
           {/* Gallery Component */}
-          <ProductGallery images={images} category={product.category} />
+          <ProductGallery images={images} colorVariants={colorVariants} category={product.category} />
 
           {/* Details Column */}
           <div className="flex flex-col">

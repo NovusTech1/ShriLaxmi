@@ -5,7 +5,7 @@ import Navbar from './Navbar';
 import Footer from './Footer';
 import ProductCard from './ProductCard';
 
-const CATEGORIES = ["All", "Kurtis", "2 Piece Sets", "3 Piece Sets", "Co-ord Sets", "Dress Materials", "Pants", "Bedsheets"];
+const CATEGORIES = ["All", "Short Kurti", "Long Kurti", "Cord Set", "One Piece", "3 Piece Sets", "Bedsheets", "Pants", "Dress Materials"];
 const SIZES = ["All", "S", "M", "L", "XL", "XXL", "3XL"];
 
 export default function Catalogue({ initialProducts }) {
@@ -20,7 +20,7 @@ export default function Catalogue({ initialProducts }) {
 
   return (
     <div className="min-h-screen bg-[#FDFBF7] text-[#3A3A3A] font-sans flex flex-col relative">
-      
+
       <Navbar />
 
       {/* Filters */}
@@ -67,9 +67,9 @@ export default function Catalogue({ initialProducts }) {
         ) : (
           <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-4 gap-4 md:gap-8 pb-10">
             {filteredProducts.map(product => (
-              <ProductCard 
-                key={product.id} 
-                product={product} 
+              <ProductCard
+                key={product.id}
+                product={product}
               />
             ))}
           </div>

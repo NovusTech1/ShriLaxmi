@@ -50,6 +50,25 @@ export default function ManageProductsPage() {
     }
   };
 
+  const handleTrendingToggle = async (product) => {
+    const newTrending = !product.is_trending;
+    // Optimistic UI update
+    setProducts(prev =>
+      prev.map(p => p.id === product.id ? { ...p, is_trending: newTrending } : p)
+    );
+    try {
+      const res = await fetch(`/api/admin/products/${product.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ is_trending: newTrending }),
+      });
+      if (!res.ok) throw new Error('Update failed');
+    } catch {
+      alert('Failed to update featured status. Reverting...');
+      fetchProducts();
+    }
+  };
+
   const handleDelete = async (productId) => {
     if (!window.confirm('Are you sure you want to remove this product?')) return;
     
@@ -127,6 +146,17 @@ export default function ManageProductsPage() {
                     </button>
                   </div>
 
+                  {/* Trending Badge */}
+                  {product.is_trending && (
+                    <span className="inline-block bg-[#C17C6E] text-white text-[9px] md:text-[10px] font-bold px-2 py-1 rounded shadow-md uppercase tracking-wider">🌟 Featured</span>
+                  )}
+                  {/* Trending Toggle Button */}
+                  <button
+                    onClick={() => handleTrendingToggle(product)}
+                    className={`mt-2 block text-xs font-medium ${product.is_trending ? 'text-[#C17C6E]' : 'text-gray-500'} hover:underline`}
+                  >
+                    {product.is_trending ? 'Unmark Featured' : 'Mark as Featured'}
+                  </button>
                   {/* Size Toggles */}
                   <div className="mt-4">
                     <p className="text-[10px] tracking-wider text-gray-400 mb-2 uppercase">Tap to toggle availability</p>

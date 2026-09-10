@@ -3,16 +3,15 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import toast from 'react-hot-toast';
+import imageCompression from 'browser-image-compression';
 
 const CATEGORIES = [
-  "Kurtis", "2 Piece Sets", "3 Piece Sets", "Co-ord Sets", 
-  "Dress Materials", "Pants", "Bedsheets"
+  "Short Kurti", "Long Kurti", "Cord Set", "One Piece", 
+  "Two Piece", "Bedsheets", "Pants", "Dress Material"
 ];
 
 const SIZES = ["S", "M", "L", "XL", "XXL", "3XL"];
-
-const MAX_IMAGE_MB = 4;
-const MAX_IMAGE_BYTES = MAX_IMAGE_MB * 1024 * 1024;
 
 export default function AddProductPage() {
   const router = useRouter();
@@ -20,56 +19,94 @@ export default function AddProductPage() {
     S: false, M: false, L: false, XL: false, XXL: false, "3XL": false
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [submitError, setSubmitError] = useState('');
+  const [isTrending, setIsTrending] = useState(false);
   
-  const [image1Name, setImage1Name] = useState('');
-  const [image2Name, setImage2Name] = useState('');
-  const [image1Error, setImage1Error] = useState('');
-  const [image2Error, setImage2Error] = useState('');
+  // Color variants state
+  const [variants, setVariants] = useState([
+    { id: Date.now(), color: '', file: null, fileName: '', error: '' }
+  ]);
 
   const handleSizeToggle = (size) => {
     setSizes(prev => ({ ...prev, [size]: !prev[size] }));
   };
 
-  const validateImage = (file) => {
-    if (!file) return '';
-    if (file.size > MAX_IMAGE_BYTES) {
-      return `File too large (${(file.size / 1024 / 1024).toFixed(1)}MB). Max is ${MAX_IMAGE_MB}MB. Please compress first.`;
-    }
-    const ext = file.name.split('.').pop().toLowerCase();
-    if (!['jpg', 'jpeg', 'png', 'webp'].includes(ext)) {
-      return `Unsupported type ".${ext}". Use JPG, PNG, or WEBP.`;
-    }
-    return '';
+  const addVariant = () => {
+    setVariants(prev => [...prev, { id: Date.now(), color: '', file: null, fileName: '', error: '' }]);
   };
 
-  const handleImage1Change = (e) => {
-    const file = e.target.files?.[0];
-    setImage1Name(file ? file.name : '');
-    setImage1Error(file ? validateImage(file) : '');
+  const removeVariant = (id) => {
+    if (variants.length > 1) {
+      setVariants(prev => prev.filter(v => v.id !== id));
+    }
   };
 
-  const handleImage2Change = (e) => {
-    const file = e.target.files?.[0];
-    setImage2Name(file ? file.name : '');
-    setImage2Error(file ? validateImage(file) : '');
+  const handleVariantChange = (id, field, value) => {
+    setVariants(prev => prev.map(v => {
+      if (v.id !== id) return v;
+      if (field === 'file') {
+        const file = value;
+        if (!file) return { ...v, file: null, fileName: '', error: '' };
+        
+        const ext = file.name.split('.').pop().toLowerCase();
+        if (!['jpg', 'jpeg', 'png', 'webp'].includes(ext)) {
+          return { ...v, file: null, fileName: '', error: `Unsupported type ".${ext}". Use JPG, PNG, or WEBP.` };
+        }
+        return { ...v, file, fileName: file.name, error: '' };
+      }
+      return { ...v, [field]: value };
+    }));
+  };
+
+  const compressImage = async (file) => {
+    const options = {
+      maxSizeMB: 4,
+      maxWidthOrHeight: 1920,
+      useWebWorker: true
+    };
+    try {
+      return await imageCompression(file, options);
+    } catch (error) {
+      console.error("Compression error:", error);
+      return file; // fallback to original if compression fails
+    }
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setSubmitError('');
 
-    // Block submission if image validation failed
-    if (image1Error || image2Error) {
-      setSubmitError('Please fix the image errors above before saving.');
+    // Validation
+    const hasErrors = variants.some(v => v.error);
+    const missingFiles = variants.some(v => !v.file);
+    const missingColors = variants.some(v => !v.color.trim());
+
+    if (hasErrors || missingFiles || missingColors) {
+      toast.error('Please fix the errors in your variants (ensure all have a color and an image).');
       return;
     }
 
     setIsSubmitting(true);
+    const loadingToast = toast.loading('Compressing images and saving product...');
 
     try {
       const formData = new FormData(e.target);
       formData.set('sizes', JSON.stringify(sizes));
+      formData.set('is_trending', isTrending);
+
+      // Build variants metadata and compress files
+      const variantsMetadata = [];
+      
+      for (let i = 0; i < variants.length; i++) {
+        const v = variants[i];
+        const compressedFile = await compressImage(v.file);
+        
+        // Use the original file extension for the compressed file name
+        const compressedFileWithName = new File([compressedFile], v.fileName, { type: compressedFile.type });
+        
+        formData.append(`variant_image_${i}`, compressedFileWithName);
+        variantsMetadata.push({ color: v.color.trim() });
+      }
+
+      formData.append('variants_meta', JSON.stringify(variantsMetadata));
 
       const res = await fetch('/api/admin/add-product', {
         method: 'POST',
@@ -82,15 +119,13 @@ export default function AddProductPage() {
         throw new Error(result.error || 'Failed to save product');
       }
 
-      // Success — redirect to dashboard
+      toast.success('Successfully uploaded!', { id: loadingToast });
       router.push('/admin/dashboard');
     } catch (err) {
-      setSubmitError(err.message || 'Something went wrong. Please try again.');
+      toast.error(err.message || 'Something went wrong. Please try again.', { id: loadingToast });
       setIsSubmitting(false);
     }
   };
-
-  const hasErrors = !!image1Error || !!image2Error;
 
   return (
     <div className="min-h-screen bg-[#FDFBF7] text-[#3A3A3A] p-6 pb-20">
@@ -123,6 +158,20 @@ export default function AddProductPage() {
             <input type="text" name="tags" placeholder="e.g. Cotton, Floral Print, Summer" className="w-full border border-[#F0EBE1] rounded-md p-3 bg-[#FDFBF7] focus:outline-none focus:border-[#b08968]" />
           </div>
 
+          {/* Trending Checkbox */}
+          <div className="flex items-center gap-3 bg-[#FDFBF7] p-4 rounded-md border border-[#F0EBE1]">
+            <input 
+              type="checkbox" 
+              id="trending-checkbox"
+              checked={isTrending}
+              onChange={(e) => setIsTrending(e.target.checked)}
+              className="w-5 h-5 accent-[#C17C6E] cursor-pointer"
+            />
+            <label htmlFor="trending-checkbox" className="text-sm font-medium text-gray-700 cursor-pointer">
+              Mark as 🌟 Featured
+            </label>
+          </div>
+
           {/* Sizes */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">Available Sizes</label>
@@ -140,54 +189,73 @@ export default function AddProductPage() {
             </div>
           </div>
 
-          {/* Images */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            
-            {/* Primary Image */}
-            <div className="flex flex-col">
-              <label className="block text-sm font-medium text-gray-700 mb-2">Primary Image *</label>
-              <label className={`flex flex-col items-center justify-center border-2 border-dashed rounded-lg p-6 cursor-pointer transition-colors ${image1Error ? 'border-red-400 bg-red-50' : image1Name ? 'border-[#C17C6E] bg-[#FDFBF7]' : 'border-[#E5E0D8] bg-[#FDFBF7] hover:border-[#C17C6E]'}`}>
-                <span className={`text-xs font-medium mb-1 text-center truncate w-full px-2 ${image1Error ? 'text-red-500' : image1Name ? 'text-[#C17C6E]' : 'text-gray-500'}`}>
-                  {image1Name ? `Selected: ${image1Name}` : 'Click to upload primary photo'}
-                </span>
-                {image1Error
-                  ? <span className="text-[10px] text-red-400 text-center">{image1Error}</span>
-                  : !image1Name && <span className="text-[10px] text-gray-400">PNG, JPG, WEBP — max {MAX_IMAGE_MB}MB</span>
-                }
-                <input type="file" name="image1" accept="image/*" required className="hidden" onChange={handleImage1Change} />
-              </label>
+          {/* Color Variants */}
+          <div>
+            <div className="flex justify-between items-end mb-2">
+              <label className="block text-sm font-medium text-gray-700">Color Variants *</label>
             </div>
-
-            {/* Secondary Image */}
-            <div className="flex flex-col">
-              <label className="block text-sm font-medium text-gray-700 mb-2">Secondary Image (Optional)</label>
-              <label className={`flex flex-col items-center justify-center border-2 border-dashed rounded-lg p-6 cursor-pointer transition-colors ${image2Error ? 'border-red-400 bg-red-50' : image2Name ? 'border-[#C17C6E] bg-[#FDFBF7]' : 'border-[#E5E0D8] bg-[#FDFBF7] hover:border-[#C17C6E]'}`}>
-                <span className={`text-xs font-medium mb-1 text-center truncate w-full px-2 ${image2Error ? 'text-red-500' : image2Name ? 'text-[#C17C6E]' : 'text-gray-500'}`}>
-                  {image2Name ? `Selected: ${image2Name}` : 'Click to upload second photo'}
-                </span>
-                {image2Error
-                  ? <span className="text-[10px] text-red-400 text-center">{image2Error}</span>
-                  : !image2Name && <span className="text-[10px] text-gray-400">PNG, JPG, WEBP — max {MAX_IMAGE_MB}MB</span>
-                }
-                <input type="file" name="image2" accept="image/*" className="hidden" onChange={handleImage2Change} />
-              </label>
+            <div className="space-y-4">
+              {variants.map((variant, index) => (
+                <div key={variant.id} className="p-4 border border-[#F0EBE1] rounded-lg bg-[#FDFBF7] relative">
+                  {variants.length > 1 && (
+                    <button 
+                      type="button" 
+                      onClick={() => removeVariant(variant.id)}
+                      className="absolute top-2 right-2 text-gray-400 hover:text-red-500"
+                    >
+                      ✕
+                    </button>
+                  )}
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 mb-1">Color Name</label>
+                      <input 
+                        type="text" 
+                        required
+                        placeholder="e.g. Navy Blue" 
+                        value={variant.color}
+                        onChange={(e) => handleVariantChange(variant.id, 'color', e.target.value)}
+                        className="w-full border border-[#E5E0D8] rounded-md p-2 bg-white focus:outline-none focus:border-[#b08968]" 
+                      />
+                    </div>
+                    
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 mb-1">Color Image</label>
+                      <label className={`flex flex-col items-center justify-center border border-dashed rounded-md p-2 cursor-pointer transition-colors bg-white ${variant.error ? 'border-red-400' : variant.fileName ? 'border-[#C17C6E]' : 'border-[#E5E0D8] hover:border-[#C17C6E]'}`}>
+                        <span className={`text-xs text-center truncate w-full px-2 ${variant.error ? 'text-red-500' : variant.fileName ? 'text-[#C17C6E]' : 'text-gray-500'}`}>
+                          {variant.fileName ? variant.fileName : 'Click to upload image'}
+                        </span>
+                        {variant.error && <span className="text-[10px] text-red-400 text-center">{variant.error}</span>}
+                        <input 
+                          type="file" 
+                          accept="image/*" 
+                          required={!variant.file} 
+                          className="hidden" 
+                          onChange={(e) => handleVariantChange(variant.id, 'file', e.target.files?.[0])} 
+                        />
+                      </label>
+                    </div>
+                  </div>
+                </div>
+              ))}
             </div>
             
+            <button
+              type="button"
+              onClick={addVariant}
+              className="mt-3 text-sm text-[#C17C6E] font-medium hover:underline flex items-center gap-1"
+            >
+              + Add another color
+            </button>
           </div>
-
-          {/* Submission error banner */}
-          {submitError && (
-            <div className="bg-red-50 border border-red-200 text-red-600 text-sm rounded-md p-3">
-              {submitError}
-            </div>
-          )}
 
           {/* Submit */}
           <button 
             type="submit" 
-            disabled={isSubmitting || hasErrors}
+            disabled={isSubmitting}
             className={`w-full text-white py-3 rounded-md font-medium transition-colors mt-4 ${
-              isSubmitting || hasErrors ? 'bg-gray-400 cursor-not-allowed' : 'bg-[#C17C6E] hover:bg-[#b08968]'
+              isSubmitting ? 'bg-gray-400 cursor-not-allowed' : 'bg-[#C17C6E] hover:bg-[#b08968]'
             }`}
           >
             {isSubmitting ? 'UPLOADING & SAVING...' : 'SAVE PRODUCT'}

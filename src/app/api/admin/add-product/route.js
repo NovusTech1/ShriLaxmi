@@ -72,14 +72,33 @@ export async function POST(request) {
       }
     }
 
-    const image1File = formData.get('image1');
-    const image2File = formData.get('image2');
+    // Process Color Variants
+    const variantsMetaStr = formData.get('variants_meta');
+    if (!variantsMetaStr) {
+      return NextResponse.json({ error: 'Color variants are required' }, { status: 400 });
+    }
 
-    const image_1 = await uploadImage(image1File);
-    const image_2 = await uploadImage(image2File);
+    const variantsMeta = JSON.parse(variantsMetaStr);
+    const colorVariants = [];
+
+    for (let i = 0; i < variantsMeta.length; i++) {
+      const file = formData.get(`variant_image_${i}`);
+      const imageUrl = await uploadImage(file);
+      
+      colorVariants.push({
+        color: variantsMeta[i].color,
+        image_url: imageUrl
+      });
+    }
+
+    // For backward compatibility and storefront ease, use the first variant's image as image_1
+    const image_1 = colorVariants.length > 0 ? colorVariants[0].image_url : null;
+
+    const isTrendingStr = formData.get('is_trending');
+    const is_trending = isTrendingStr === 'true' || isTrendingStr === true;
 
     const { error } = await supabaseAdmin.from('products').insert([
-      { category, tags, sizes, image_1, image_2, is_active: true },
+      { category, tags, sizes, image_1, color_variants: colorVariants, is_trending, is_active: true },
     ]);
 
     if (error) {

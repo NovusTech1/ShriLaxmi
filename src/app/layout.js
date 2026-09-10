@@ -16,13 +16,18 @@ export const metadata = {
   description: "Catalogue website for Shri laxmi the ethnic wear brand for women",
 };
 
+import { Toaster } from 'react-hot-toast';
+
 export default function RootLayout({ children }) {
   return (
     <html
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col">{children}</body>
+      <body className="min-h-full flex flex-col">
+        {children}
+        <Toaster position="bottom-center" />
+      </body>
     </html>
   );
 }
