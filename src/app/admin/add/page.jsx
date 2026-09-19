@@ -8,7 +8,7 @@ import imageCompression from 'browser-image-compression';
 
 const CATEGORIES = [
   "Short Kurti", "Long Kurti", "Cord Set", "One Piece", 
-  "Two Piece", "Bedsheets", "Pants", "Dress Material"
+  "3 Piece Sets", "Bedsheets", "Pants", "Dress Materials"
 ];
 
 const SIZES = ["S", "M", "L", "XL", "XXL", "3XL"];
