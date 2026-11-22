@@ -2,13 +2,23 @@ import { NextResponse } from 'next/server';
 import { createSessionCookieValue } from '@/lib/session';
 import { cookies } from 'next/headers';
 
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'admin123';
+export const dynamic = 'force-dynamic';
 
 export async function POST(request) {
   try {
     const { password } = await request.json();
 
-    if (password === ADMIN_PASSWORD) {
+    const rawEnvPassword = process.env.ADMIN_PASSWORD || 'admin123';
+    const cleanEnvPassword = rawEnvPassword.replace(/^["']|["']$/g, '').trim();
+    const inputPassword = typeof password === 'string' ? password.trim() : '';
+
+    const isMatch = Boolean(
+      (password && password === rawEnvPassword) ||
+      (inputPassword && inputPassword === cleanEnvPassword) ||
+      (password && password === cleanEnvPassword)
+    );
+
+    if (isMatch) {
       const cookieValue = await createSessionCookieValue();
 
       // We must 'await' cookies() in the latest version of Next.js
@@ -16,7 +26,7 @@ export async function POST(request) {
       cookieStore.set('admin_session', cookieValue, {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
-        sameSite: 'strict',
+        sameSite: 'lax',
         path: '/',
         maxAge: 60 * 60 * 24 * 30 // 30 days
       });

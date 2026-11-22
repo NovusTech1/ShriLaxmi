@@ -11,8 +11,17 @@ const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'admin123';
 
 export async function login(formData) {
   const password = formData.get('password');
+  const rawEnvPassword = process.env.ADMIN_PASSWORD || 'admin123';
+  const cleanEnvPassword = rawEnvPassword.replace(/^["']|["']$/g, '').trim();
+  const inputPassword = typeof password === 'string' ? password.trim() : '';
 
-  if (password === ADMIN_PASSWORD) {
+  const isMatch = Boolean(
+    (password && password === rawEnvPassword) ||
+    (inputPassword && inputPassword === cleanEnvPassword) ||
+    (password && password === cleanEnvPassword)
+  );
+
+  if (isMatch) {
     const cookieValue = await createSessionCookieValue();
     const cookieStore = await cookies();
     cookieStore.set('admin_session', cookieValue, {
