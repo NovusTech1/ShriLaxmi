@@ -4,18 +4,26 @@ import { cookies } from 'next/headers';
 
 export const dynamic = 'force-dynamic';
 
+function normalize(str) {
+  if (typeof str !== 'string') return '';
+  return str.replace(/[\r\n\t]/g, '').trim().replace(/^["']|["']$/g, '').trim();
+}
+
 export async function POST(request) {
   try {
     const { password } = await request.json();
 
-    const rawEnvPassword = process.env.ADMIN_PASSWORD || 'admin123';
-    const cleanEnvPassword = rawEnvPassword.replace(/^["']|["']$/g, '').trim();
-    const inputPassword = typeof password === 'string' ? password.trim() : '';
+    const rawEnvPassword = process.env.ADMIN_PASSWORD || process.env.NEXT_PUBLIC_ADMIN_PASSWORD || 'admin123';
+    const cleanEnv = normalize(rawEnvPassword);
+    const cleanInput = normalize(password);
+
+    console.log('[Auth Check] ADMIN_PASSWORD configured in env:', Boolean(process.env.ADMIN_PASSWORD || process.env.NEXT_PUBLIC_ADMIN_PASSWORD));
 
     const isMatch = Boolean(
       (password && password === rawEnvPassword) ||
-      (inputPassword && inputPassword === cleanEnvPassword) ||
-      (password && password === cleanEnvPassword)
+      (cleanInput && cleanInput === cleanEnv) ||
+      (cleanInput && cleanInput === rawEnvPassword) ||
+      (password && password === cleanEnv)
     );
 
     if (isMatch) {
