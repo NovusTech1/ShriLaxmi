@@ -4,17 +4,28 @@ import { useState } from 'react';
 import Navbar from './Navbar';
 import Footer from './Footer';
 import ProductCard from './ProductCard';
+import { DEFAULT_CATEGORIES } from '@/lib/categories';
+import { ALL_FILTER_SIZES } from '@/lib/sizes';
 
-const CATEGORIES = ["All", "Short Kurti", "Long Kurti", "Cord Set", "One Piece", "3 Piece Sets", "Bedsheets", "Pants", "Dress Materials"];
-const SIZES = ["All", "S", "M", "L", "XL", "XXL", "3XL"];
-
-export default function Catalogue({ initialProducts }) {
+export default function Catalogue({ initialProducts, initialCategories = [] }) {
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [selectedSize, setSelectedSize] = useState('All');
 
+  const categories = ["All", ...(initialCategories.length > 0 ? initialCategories : DEFAULT_CATEGORIES)];
+
   const filteredProducts = initialProducts.filter(product => {
     const categoryMatch = selectedCategory === 'All' || product.category === selectedCategory;
-    const sizeMatch = selectedSize === 'All' || product.sizes[selectedSize] === true;
+    const sizes = (product.sizes && typeof product.sizes === 'object') ? product.sizes : {};
+    
+    let sizeMatch = true;
+    if (selectedSize !== 'All') {
+      if (sizes.no_sizes === true || sizes.has_no_sizes === true) {
+        sizeMatch = false;
+      } else {
+        sizeMatch = sizes[selectedSize] === true;
+      }
+    }
+
     return categoryMatch && sizeMatch;
   });
 
@@ -30,7 +41,7 @@ export default function Catalogue({ initialProducts }) {
           <div className="flex flex-col w-1/2 overflow-hidden">
             <h3 className="text-[10px] md:text-xs font-semibold tracking-wider text-gray-400 mb-2 md:mb-3 uppercase text-left">Category</h3>
             <div className="flex overflow-x-auto pb-2 gap-2 no-scrollbar">
-              {CATEGORIES.map(cat => (
+              {categories.map(cat => (
                 <button
                   key={cat}
                   onClick={() => setSelectedCategory(cat)}
@@ -46,7 +57,7 @@ export default function Catalogue({ initialProducts }) {
           <div className="flex flex-col w-1/2 overflow-hidden">
             <h3 className="text-[10px] md:text-xs font-semibold tracking-wider text-gray-400 mb-2 md:mb-3 uppercase text-left">Size</h3>
             <div className="flex overflow-x-auto pb-2 gap-2 no-scrollbar">
-              {SIZES.map(size => (
+              {ALL_FILTER_SIZES.map(size => (
                 <button
                   key={size}
                   onClick={() => setSelectedSize(size)}

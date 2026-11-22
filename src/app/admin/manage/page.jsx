@@ -2,17 +2,12 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-
-const SIZES = ["S", "M", "L", "XL", "XXL", "3XL"];
+import { getProductSizes, isProductOutOfStock } from '@/lib/sizes';
 
 export default function ManageProductsPage() {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-
-  useEffect(() => {
-    fetchProducts();
-  }, []);
 
   const fetchProducts = async () => {
     setLoading(true);
@@ -29,8 +24,24 @@ export default function ManageProductsPage() {
     }
   };
 
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadProducts = async () => {
+      if (!isMounted) return;
+      await fetchProducts();
+    };
+
+    void loadProducts();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
   const handleSizeToggle = async (product, sizeToToggle) => {
-    const newSizes = { ...product.sizes, [sizeToToggle]: !product.sizes[sizeToToggle] };
+    const currentSizes = (product.sizes && typeof product.sizes === 'object') ? product.sizes : {};
+    const newSizes = { ...currentSizes, [sizeToToggle]: !currentSizes[sizeToToggle] };
     
     // Optimistic UI update
     setProducts(prev =>
@@ -47,6 +58,29 @@ export default function ManageProductsPage() {
     } catch {
       alert('Failed to save size update. Reverting...');
       fetchProducts(); // Revert UI on failure
+    }
+  };
+
+  const handleStockToggle = async (product) => {
+    const currentSizes = (product.sizes && typeof product.sizes === 'object') ? product.sizes : {};
+    const currentlyInStock = currentSizes.in_stock !== false;
+    const newSizes = { ...currentSizes, no_sizes: true, in_stock: !currentlyInStock };
+
+    // Optimistic UI update
+    setProducts(prev =>
+      prev.map(p => p.id === product.id ? { ...p, sizes: newSizes } : p)
+    );
+
+    try {
+      const res = await fetch(`/api/admin/products/${product.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sizes: newSizes }),
+      });
+      if (!res.ok) throw new Error('Update failed');
+    } catch {
+      alert('Failed to save stock update. Reverting...');
+      fetchProducts();
     }
   };
 
@@ -127,7 +161,7 @@ export default function ManageProductsPage() {
                 {/* Image */}
                 <div className="relative w-24 h-32 flex-shrink-0 bg-[#FDFBF7] rounded-md overflow-hidden border border-[#F0EBE1]">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={product.image_1} alt="Product" className="object-cover w-full h-full" />
+                  <img src={product.image_1 || product.color_variants?.[0]?.image_url || ''} alt="Product" className="object-cover w-full h-full" />
                 </div>
 
                 {/* Info & Controls */}
@@ -135,7 +169,7 @@ export default function ManageProductsPage() {
                   <div className="flex justify-between items-start mb-2">
                     <div>
                       <h3 className="font-medium text-sm">{product.category}</h3>
-                      <p className="text-xs text-gray-400 mt-1">{product.tags?.join(', ')}</p>
+                      <p className="text-xs text-gray-400 mt-1">{Array.isArray(product.tags) ? product.tags.join(', ') : (product.tags || '')}</p>
                     </div>
                     <button 
                       onClick={() => handleDelete(product.id)}
@@ -146,38 +180,76 @@ export default function ManageProductsPage() {
                     </button>
                   </div>
 
-                  {/* Trending Badge */}
-                  {product.is_trending && (
-                    <span className="inline-block bg-[#C17C6E] text-white text-[9px] md:text-[10px] font-bold px-2 py-1 rounded shadow-md uppercase tracking-wider">🌟 Featured</span>
-                  )}
+                  {/* Out of Stock & Trending Badges */}
+                  <div className="flex items-center gap-2 mt-1">
+                    {isProductOutOfStock(product) && (
+                      <span className="inline-block bg-red-100 text-red-600 text-[9px] font-bold px-2 py-0.5 rounded uppercase tracking-wider">
+                        Out of Stock
+                      </span>
+                    )}
+                    {product.is_trending && (
+                      <span className="inline-block bg-[#C17C6E] text-white text-[9px] md:text-[10px] font-bold px-2 py-0.5 rounded shadow-xs uppercase tracking-wider">🌟 Featured</span>
+                    )}
+                  </div>
+
                   {/* Trending Toggle Button */}
                   <button
                     onClick={() => handleTrendingToggle(product)}
-                    className={`mt-2 block text-xs font-medium ${product.is_trending ? 'text-[#C17C6E]' : 'text-gray-500'} hover:underline`}
+                    className={`mt-1.5 block text-xs font-medium ${product.is_trending ? 'text-[#C17C6E]' : 'text-gray-500'} hover:underline`}
                   >
                     {product.is_trending ? 'Unmark Featured' : 'Mark as Featured'}
                   </button>
-                  {/* Size Toggles */}
-                  <div className="mt-4">
-                    <p className="text-[10px] tracking-wider text-gray-400 mb-2 uppercase">Tap to toggle availability</p>
-                    <div className="flex flex-wrap gap-2">
-                      {SIZES.map(size => {
-                        const isAvailable = product.sizes?.[size] === true;
+
+                  {/* Size Toggles / Stock Toggle */}
+                  <div className="mt-3 pt-2 border-t border-[#F0EBE1]">
+                    {(() => {
+                      const sizeOptions = getProductSizes(product);
+
+                      if (sizeOptions.length === 0) {
+                        const inStock = product.sizes?.in_stock !== false;
                         return (
-                          <button
-                            key={size}
-                            onClick={() => handleSizeToggle(product, size)}
-                            className={`w-8 h-8 rounded text-xs font-medium transition-colors border ${
-                              isAvailable 
-                                ? 'bg-[#FDFBF7] border-[#C17C6E] text-[#C17C6E]' 
-                                : 'bg-gray-50 border-gray-200 text-gray-300'
-                            }`}
-                          >
-                            {size}
-                          </button>
+                          <div>
+                            <p className="text-[10px] tracking-wider text-gray-400 mb-1.5 uppercase">Stock Status (One Size / Bags)</p>
+                            <button
+                              onClick={() => handleStockToggle(product)}
+                              className={`px-3 py-1.5 rounded text-xs font-medium border transition-colors flex items-center gap-1.5 ${
+                                inStock 
+                                  ? 'bg-emerald-50 border-emerald-300 text-emerald-700 hover:bg-emerald-100' 
+                                  : 'bg-red-50 border-red-300 text-red-600 hover:bg-red-100'
+                              }`}
+                            >
+                              <span>{inStock ? '✓' : '✕'}</span>
+                              {inStock ? 'In Stock (Click to mark Out)' : 'Out of Stock (Click to mark In)'}
+                            </button>
+                          </div>
                         );
-                      })}
-                    </div>
+                      }
+
+                      return (
+                        <div>
+                          <p className="text-[10px] tracking-wider text-gray-400 mb-1.5 uppercase">Tap size to toggle availability</p>
+                          <div className="flex flex-wrap gap-1.5">
+                            {sizeOptions.map(size => {
+                              const isAvailable = product.sizes?.[size] === true;
+                              return (
+                                <button
+                                  key={size}
+                                  onClick={() => handleSizeToggle(product, size)}
+                                  className={`h-7 px-2 rounded text-[11px] font-medium transition-colors border ${
+                                    isAvailable 
+                                      ? 'bg-[#FDFBF7] border-[#C17C6E] text-[#C17C6E] font-semibold' 
+                                      : 'bg-gray-50 border-gray-200 text-gray-300 line-through'
+                                  }`}
+                                  title={`Toggle ${size}`}
+                                >
+                                  {size}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      );
+                    })()}
                   </div>
                 </div>
               </div>

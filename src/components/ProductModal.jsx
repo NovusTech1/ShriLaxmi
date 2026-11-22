@@ -1,8 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-
-const PRODUCT_SIZES = ["S", "M", "L", "XL", "XXL", "3XL"];
+import { getProductSizes } from '@/lib/sizes';
 
 export default function ProductModal({ product, onClose }) {
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
@@ -49,17 +48,30 @@ export default function ProductModal({ product, onClose }) {
 
         <div className="p-6 bg-white">
           <h2 className="font-serif text-xl text-[#3A3A3A] mb-2">{product.category}</h2>
-          {product.tags && <p className="text-sm text-gray-500 mb-4">{product.tags.join(', ')}</p>}
-          <div className="flex flex-nowrap gap-2 w-full">
-            {PRODUCT_SIZES.map(size => {
-              const isAvailable = product.sizes[size] === true;
+          {product.tags && <p className="text-sm text-gray-500 mb-4">{Array.isArray(product.tags) ? product.tags.join(', ') : product.tags}</p>}
+          {(() => {
+            const sizeOptions = getProductSizes(product);
+            const sizes = (product.sizes && typeof product.sizes === 'object') ? product.sizes : {};
+            if (sizeOptions.length === 0) {
               return (
-                <div key={size} className={`flex flex-1 items-center justify-center h-8 text-xs rounded-md transition-all ${isAvailable ? 'border border-[#C17C6E] text-[#3A3A3A] font-medium' : 'bg-gray-100 text-gray-300'}`}>
-                  {size}
+                <div className="text-xs text-gray-500 bg-gray-50 p-2 rounded text-center">
+                  Standard Size (One Size)
                 </div>
               );
-            })}
-          </div>
+            }
+            return (
+              <div className="flex flex-wrap gap-2 w-full">
+                {sizeOptions.map(size => {
+                  const isAvailable = sizes[size] === true;
+                  return (
+                    <div key={size} className={`flex flex-1 min-w-[50px] items-center justify-center h-8 text-xs px-2 rounded-md transition-all text-center ${isAvailable ? 'border border-[#C17C6E] text-[#3A3A3A] font-medium' : 'bg-gray-100 text-gray-300'}`}>
+                      {size}
+                    </div>
+                  );
+                })}
+              </div>
+            );
+          })()}
         </div>
       </div>
     </div>

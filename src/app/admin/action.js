@@ -2,27 +2,31 @@
 
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
-import { supabaseAdmin } from '@/lib/supabase/server';
+import { hasSupabaseConfig, supabaseAdmin } from '@/lib/supabase/server';
+import { createSessionCookieValue } from '@/lib/session';
+
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'admin123';
 
 // --- AUTHENTICATION ACTIONS ---
 
 export async function login(formData) {
-    const password = formData.get('password');
-    
-    if (password === process.env.ADMIN_PASSWORD) {
-      const cookieStore = await cookies();
-      cookieStore.set('admin_session', 'true', {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'lax',
-        maxAge: 60 * 60 * 24 * 7, // 7 days
-        path: '/',
-      });
-      redirect('/admin/dashboard');
-    } else {
-      throw new Error('Invalid password');
-    }
+  const password = formData.get('password');
+
+  if (password === ADMIN_PASSWORD) {
+    const cookieValue = await createSessionCookieValue();
+    const cookieStore = await cookies();
+    cookieStore.set('admin_session', cookieValue, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: 60 * 60 * 24 * 7, // 7 days
+      path: '/',
+    });
+    redirect('/admin/dashboard');
+  } else {
+    throw new Error('Invalid password');
   }
+}
 
 export async function logout() {
   const cookieStore = await cookies();
@@ -86,6 +90,10 @@ function extractStorageFileName(publicUrl) {
 }
 
 export async function addProduct(formData) {
+  if (!hasSupabaseConfig) {
+    throw new Error('Supabase credentials are missing. Add NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY, and SUPABASE_SERVICE_ROLE_KEY before creating products.');
+  }
+
   // NOTE: redirect() must be OUTSIDE try/catch — it throws internally and must not be caught
   let redirectPath = null;
 
@@ -148,6 +156,10 @@ export async function addProduct(formData) {
 // --- MANAGE PRODUCT ACTIONS ---
 
 export async function getAdminProducts() {
+  if (!hasSupabaseConfig) {
+    return [];
+  }
+
   const { data, error } = await supabaseAdmin
     .from('products')
     .select('*')
@@ -163,6 +175,10 @@ export async function getAdminProducts() {
 }
 
 export async function updateProductSizes(productId, newSizes) {
+  if (!hasSupabaseConfig) {
+    throw new Error('Supabase credentials are missing.');
+  }
+
   const { error } = await supabaseAdmin
     .from('products')
     .update({ sizes: newSizes })
@@ -175,10 +191,14 @@ export async function updateProductSizes(productId, newSizes) {
 }
 
 export async function deleteProduct(productId) {
+  if (!hasSupabaseConfig) {
+    throw new Error('Supabase credentials are missing.');
+  }
+
   // Step 1: fetch the product's image URLs
   const { data: product, error: fetchError } = await supabaseAdmin
     .from('products')
-    .select('image_1, image_2')
+    .select('image_1, image_2, color_variants')
     .eq('id', productId)
     .single();
 
@@ -195,6 +215,15 @@ export async function deleteProduct(productId) {
 
   if (file1) filesToDelete.push(file1);
   if (file2) filesToDelete.push(file2);
+
+  if (Array.isArray(product.color_variants)) {
+    for (const v of product.color_variants) {
+      const variantFile = extractStorageFileName(v.image_url);
+      if (variantFile && !filesToDelete.includes(variantFile)) {
+        filesToDelete.push(variantFile);
+      }
+    }
+  }
 
   if (filesToDelete.length > 0) {
     const { error: storageError } = await supabaseAdmin.storage

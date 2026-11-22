@@ -1,37 +1,78 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
 import imageCompression from 'browser-image-compression';
+import { DEFAULT_CATEGORIES } from '@/lib/categories';
+import { APPAREL_SIZES, BEDSHEET_SIZES } from '@/lib/sizes';
 
-const CATEGORIES = [
-  "Short Kurti", "Long Kurti", "Cord Set", "One Piece", 
-  "3 Piece Sets", "Bedsheets", "Pants", "Dress Materials"
-];
-
-const SIZES = ["S", "M", "L", "XL", "XXL", "3XL"];
+const INITIAL_VARIANT = { id: 1, color: '', file: null, fileName: '', error: '' };
 
 export default function AddProductPage() {
   const router = useRouter();
-  const [sizes, setSizes] = useState({
-    S: false, M: false, L: false, XL: false, XXL: false, "3XL": false
+  const [categories, setCategories] = useState(DEFAULT_CATEGORIES);
+  const [selectedCategory, setSelectedCategory] = useState('');
+  const [sizeMode, setSizeMode] = useState('apparel'); // 'apparel' | 'bedsheet' | 'none'
+  const [apparelSizes, setApparelSizes] = useState({
+    S: false, M: false, L: false, XL: false, XXL: false, "3XL": false, "Free Size": false
   });
+  const [bedsheetSizes, setBedsheetSizes] = useState({
+    "Single Bed": false, "King Size": false
+  });
+  const [inStock, setInStock] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isTrending, setIsTrending] = useState(false);
-  
-  // Color variants state
-  const [variants, setVariants] = useState([
-    { id: Date.now(), color: '', file: null, fileName: '', error: '' }
-  ]);
 
-  const handleSizeToggle = (size) => {
-    setSizes(prev => ({ ...prev, [size]: !prev[size] }));
+  // Color variants state
+  const [variants, setVariants] = useState([INITIAL_VARIANT]);
+
+  useEffect(() => {
+    let isMounted = true;
+    const loadCategories = async () => {
+      try {
+        const res = await fetch('/api/admin/categories');
+        if (res.ok) {
+          const data = await res.json();
+          if (isMounted && Array.isArray(data) && data.length > 0) {
+            setCategories(data.map(c => c.name || c));
+          }
+        }
+      } catch {
+        // keep defaults
+      }
+    };
+    void loadCategories();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  const handleCategoryChange = (e) => {
+    const cat = e.target.value;
+    setSelectedCategory(cat);
+    const lower = cat.toLowerCase();
+    if (lower.includes('bedsheet')) {
+      setSizeMode('bedsheet');
+    } else if (lower.includes('bag')) {
+      setSizeMode('none');
+    } else {
+      setSizeMode('apparel');
+    }
+  };
+
+  const toggleApparelSize = (size) => {
+    setApparelSizes(prev => ({ ...prev, [size]: !prev[size] }));
+  };
+
+  const toggleBedsheetSize = (size) => {
+    setBedsheetSizes(prev => ({ ...prev, [size]: !prev[size] }));
   };
 
   const addVariant = () => {
-    setVariants(prev => [...prev, { id: Date.now(), color: '', file: null, fileName: '', error: '' }]);
+    const nextId = Math.max(1, ...variants.map(variant => Number(variant.id) || 1)) + 1;
+    setVariants(prev => [...prev, { id: nextId, color: '', file: null, fileName: '', error: '' }]);
   };
 
   const removeVariant = (id) => {
@@ -89,7 +130,19 @@ export default function AddProductPage() {
 
     try {
       const formData = new FormData(e.target);
-      formData.set('sizes', JSON.stringify(sizes));
+
+      let finalSizes = {};
+      if (sizeMode === 'none') {
+        finalSizes = { no_sizes: true, in_stock: inStock };
+      } else if (sizeMode === 'bedsheet') {
+        const hasAnyTrue = Object.values(bedsheetSizes).some(Boolean);
+        finalSizes = { ...bedsheetSizes, no_sizes: false, in_stock: hasAnyTrue };
+      } else {
+        const hasAnyTrue = Object.values(apparelSizes).some(Boolean);
+        finalSizes = { ...apparelSizes, no_sizes: false, in_stock: hasAnyTrue };
+      }
+
+      formData.set('sizes', JSON.stringify(finalSizes));
       formData.set('is_trending', isTrending);
 
       // Build variants metadata and compress files
@@ -143,10 +196,21 @@ export default function AddProductPage() {
           
           {/* Category */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Category *</label>
-            <select name="category" required className="w-full border border-[#F0EBE1] rounded-md p-3 bg-[#FDFBF7] focus:outline-none focus:border-[#b08968]">
+            <div className="flex justify-between items-center mb-2">
+              <label className="block text-sm font-medium text-gray-700">Category *</label>
+              <Link href="/admin/categories" className="text-xs text-[#C17C6E] hover:underline flex items-center gap-1 font-medium">
+                + Manage Categories
+              </Link>
+            </div>
+            <select 
+              name="category" 
+              required 
+              value={selectedCategory} 
+              onChange={handleCategoryChange}
+              className="w-full border border-[#F0EBE1] rounded-md p-3 bg-[#FDFBF7] focus:outline-none focus:border-[#b08968]"
+            >
               <option value="">Select a category</option>
-              {CATEGORIES.map(cat => (
+              {categories.map(cat => (
                 <option key={cat} value={cat}>{cat}</option>
               ))}
             </select>
@@ -172,21 +236,97 @@ export default function AddProductPage() {
             </label>
           </div>
 
-          {/* Sizes */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Available Sizes</label>
-            <div className="flex flex-wrap gap-3">
-              {SIZES.map(size => (
+          {/* Sizes Configuration */}
+          <div className="border border-[#F0EBE1] rounded-xl p-5 bg-[#FDFBF7]/60 space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Product Sizes & Inventory</label>
+                <p className="text-xs text-gray-500">Choose the sizing type that applies to this item</p>
+              </div>
+
+              {/* Size Mode Selector Tabs */}
+              <div className="flex bg-white p-1 rounded-lg border border-[#E5E0D8] text-xs">
                 <button
                   type="button"
-                  key={size}
-                  onClick={() => handleSizeToggle(size)}
-                  className={`w-12 h-12 rounded-md font-medium transition-colors border ${sizes[size] ? 'bg-[#C17C6E] border-[#C17C6E] text-white' : 'bg-[#FDFBF7] border-[#F0EBE1] text-gray-400 hover:border-[#b08968]'}`}
+                  onClick={() => setSizeMode('apparel')}
+                  className={`px-3 py-1.5 rounded-md font-medium transition-colors ${sizeMode === 'apparel' ? 'bg-[#C17C6E] text-white shadow-xs' : 'text-gray-600 hover:text-black'}`}
                 >
-                  {size}
+                  Clothing
                 </button>
-              ))}
+                <button
+                  type="button"
+                  onClick={() => setSizeMode('bedsheet')}
+                  className={`px-3 py-1.5 rounded-md font-medium transition-colors ${sizeMode === 'bedsheet' ? 'bg-[#C17C6E] text-white shadow-xs' : 'text-gray-600 hover:text-black'}`}
+                >
+                  Bedsheets
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSizeMode('none')}
+                  className={`px-3 py-1.5 rounded-md font-medium transition-colors ${sizeMode === 'none' ? 'bg-[#C17C6E] text-white shadow-xs' : 'text-gray-600 hover:text-black'}`}
+                >
+                  No Sizes (Bags)
+                </button>
+              </div>
             </div>
+
+            {/* Mode 1: Apparel Sizes (S, M, L, XL, XXL, 3XL, Free Size) */}
+            {sizeMode === 'apparel' && (
+              <div>
+                <p className="text-xs text-gray-500 mb-3">Tap each size to toggle availability for this product:</p>
+                <div className="flex flex-wrap gap-2.5">
+                  {APPAREL_SIZES.map(size => (
+                    <button
+                      type="button"
+                      key={size}
+                      onClick={() => toggleApparelSize(size)}
+                      className={`h-11 px-3.5 rounded-md text-xs font-medium transition-all border ${apparelSizes[size] ? 'bg-[#C17C6E] border-[#C17C6E] text-white shadow-xs' : 'bg-white border-[#E5E0D8] text-gray-500 hover:border-[#b08968]'}`}
+                    >
+                      {size}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Mode 2: Bedsheets (Single Bed, King Size) */}
+            {sizeMode === 'bedsheet' && (
+              <div>
+                <p className="text-xs text-gray-500 mb-3">Select available bedsheet sizes:</p>
+                <div className="flex flex-wrap gap-3">
+                  {BEDSHEET_SIZES.map(size => (
+                    <button
+                      type="button"
+                      key={size}
+                      onClick={() => toggleBedsheetSize(size)}
+                      className={`h-11 px-5 rounded-md text-xs font-medium transition-all border flex items-center gap-2 ${bedsheetSizes[size] ? 'bg-[#C17C6E] border-[#C17C6E] text-white shadow-xs' : 'bg-white border-[#E5E0D8] text-gray-600 hover:border-[#b08968]'}`}
+                    >
+                      <span className={`w-4 h-4 rounded border flex items-center justify-center text-[10px] ${bedsheetSizes[size] ? 'border-white bg-white text-[#C17C6E]' : 'border-gray-400'}`}>
+                        {bedsheetSizes[size] ? '✓' : ''}
+                      </span>
+                      {size}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Mode 3: No sizes needed (Bags, Accessories) */}
+            {sizeMode === 'none' && (
+              <div className="bg-white p-4 rounded-lg border border-[#E5E0D8] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div>
+                  <p className="text-sm font-medium text-gray-800">One Standard Size</p>
+                  <p className="text-xs text-gray-500">Perfect for Tote Bags, Handbags, and accessories with no garment sizes.</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setInStock(prev => !prev)}
+                  className={`px-4 py-2 rounded-md text-xs font-medium border transition-colors self-start sm:self-auto ${inStock ? 'bg-emerald-50 border-emerald-300 text-emerald-700' : 'bg-red-50 border-red-300 text-red-600'}`}
+                >
+                  {inStock ? '✓ Marked In Stock' : '✕ Marked Out of Stock'}
+                </button>
+              </div>
+            )}
           </div>
 
           {/* Color Variants */}

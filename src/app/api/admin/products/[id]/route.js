@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { deleteProduct } from '@/app/admin/action';
-import { supabaseAdmin } from '@/lib/supabase/server';
+import { hasSupabaseConfig, supabaseAdmin } from '@/lib/supabase/server';
 import { cookies } from 'next/headers';
 import { verifySessionCookie } from '@/lib/session';
 
@@ -14,6 +14,9 @@ async function isAuthorized() {
 export async function PATCH(request, { params }) {
   if (!(await isAuthorized())) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+  if (!hasSupabaseConfig) {
+    return NextResponse.json({ error: 'Supabase is not configured.' }, { status: 503 });
   }
   try {
     const { id } = await params;
@@ -33,6 +36,9 @@ export async function PATCH(request, { params }) {
 export async function DELETE(request, { params }) {
   if (!(await isAuthorized())) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+  if (!hasSupabaseConfig) {
+    return NextResponse.json({ error: 'Supabase is not configured.' }, { status: 503 });
   }
   try {
     const { id } = await params;

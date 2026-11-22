@@ -1,9 +1,11 @@
 import Link from 'next/link';
-
-const PRODUCT_SIZES = ["S", "M", "L", "XL", "XXL", "3XL"];
+import { isProductOutOfStock, getProductSizes } from '@/lib/sizes';
 
 export default function ProductCard({ product }) {
-  const isOutOfStock = !Object.values(product.sizes).some(val => val === true);
+  const sizes = (product.sizes && typeof product.sizes === 'object') ? product.sizes : {};
+  const isOutOfStock = isProductOutOfStock(product);
+  const sizeOptions = getProductSizes(product);
+  const displayImage = product.image_1 || product.color_variants?.[0]?.image_url || '';
 
   return (
     <Link href={`/product/${product.id}`} className="group cursor-pointer flex flex-col h-full bg-white p-3 rounded-xl border border-[#F0EBE1] hover:shadow-md transition-all">
@@ -17,8 +19,8 @@ export default function ProductCard({ product }) {
         )}
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img 
-          src={product.image_1} 
-          alt={product.category} 
+          src={displayImage} 
+          alt={product.category || 'Product'} 
           className="object-cover w-full h-full transition-transform duration-500 group-hover:scale-105" 
         />
       </div>
@@ -38,7 +40,7 @@ export default function ProductCard({ product }) {
         </h2>
         
         {/* Pill Tags */}
-        {product.tags && product.tags.length > 0 && (
+        {Array.isArray(product.tags) && product.tags.length > 0 && (
           <div className="flex flex-wrap gap-1">
             {product.tags.map((tag, i) => (
               <span key={i} className="text-[9px] md:text-[10px] px-2 py-0.5 bg-[#F5F0E6] text-[#8B7355] rounded-full truncate max-w-full">
@@ -48,25 +50,26 @@ export default function ProductCard({ product }) {
           </div>
         )}
 
-
-        {/* Sizes Bar */}
-        <div className="mt-auto pt-2 grid grid-cols-3 gap-1 w-full">
-          {PRODUCT_SIZES.map(size => {
-            const isAvailable = product.sizes[size] === true;
-            return (
-              <div 
-                key={size} 
-                className={`flex items-center justify-center py-1 text-[9px] rounded-md transition-all ${
-                  isAvailable 
-                    ? 'border border-[#C17C6E] text-[#3A3A3A] font-medium bg-white' 
-                    : 'bg-gray-50 text-gray-300'
-                }`}
-              >
-                {size}
-              </div>
-            );
-          })}
-        </div>
+        {/* Sizes Bar (only shown if product has sizes) */}
+        {sizeOptions.length > 0 && (
+          <div className={`mt-auto pt-2 grid ${sizeOptions.length <= 3 ? 'grid-cols-2' : 'grid-cols-4'} gap-1 w-full`}>
+            {sizeOptions.map(size => {
+              const isAvailable = sizes[size] === true;
+              return (
+                <div 
+                  key={size} 
+                  className={`flex items-center justify-center py-1 px-0.5 text-[8px] md:text-[9px] rounded-md transition-all text-center leading-tight ${
+                    isAvailable 
+                      ? 'border border-[#C17C6E] text-[#3A3A3A] font-medium bg-white' 
+                      : 'bg-gray-50 text-gray-300'
+                  }`}
+                >
+                  {size}
+                </div>
+              );
+            })}
+          </div>
+        )}
 
       </div>
     </Link>

@@ -28,26 +28,37 @@ export default function Dashboard() {
 
       {/* Main Content */}
       <main className="max-w-4xl mx-auto">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <Link href="/admin/add" className="group block bg-white p-8 rounded-xl border border-[#F0EBE1] hover:shadow-md hover:border-[#E5E0D8] transition-all">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <Link href="/admin/add" className="group block bg-white p-6 md:p-8 rounded-xl border border-[#F0EBE1] hover:shadow-md hover:border-[#E5E0D8] transition-all">
             <div className="w-12 h-12 bg-[#FDFBF7] text-[#C17C6E] rounded-full flex items-center justify-center mb-6 border border-[#F0EBE1] group-hover:bg-[#C17C6E] group-hover:text-white transition-colors">
               <span className="text-2xl font-light">+</span>
             </div>
-            <h2 className="text-lg font-medium mb-2">Add New Product</h2>
-            <p className="text-sm text-gray-500 mb-6">Upload images, set categories, and define available sizes.</p>
-            <div className="inline-block bg-[#C17C6E] text-white text-sm font-medium px-6 py-2 rounded-md">
+            <h2 className="text-lg font-medium mb-2">Add Product</h2>
+            <p className="text-xs text-gray-500 mb-6 leading-relaxed">Upload images, set categories, and define available sizes.</p>
+            <div className="inline-block bg-[#C17C6E] text-white text-xs font-medium px-5 py-2 rounded-md">
               ADD NEW
             </div>
           </Link>
 
-          <Link href="/admin/manage" className="group block bg-white p-8 rounded-xl border border-[#F0EBE1] hover:shadow-md hover:border-[#E5E0D8] transition-all">
+          <Link href="/admin/manage" className="group block bg-white p-6 md:p-8 rounded-xl border border-[#F0EBE1] hover:shadow-md hover:border-[#E5E0D8] transition-all">
             <div className="w-12 h-12 bg-[#FDFBF7] text-[#C17C6E] rounded-full flex items-center justify-center mb-6 border border-[#F0EBE1] group-hover:bg-[#C17C6E] group-hover:text-white transition-colors">
               <span className="text-xl">☰</span>
             </div>
             <h2 className="text-lg font-medium mb-2">Manage Products</h2>
-            <p className="text-sm text-gray-500 mb-6">Change size availability, update tags, or remove products.</p>
-            <div className="inline-block bg-[#b08968] text-white text-sm font-medium px-6 py-2 rounded-md">
+            <p className="text-xs text-gray-500 mb-6 leading-relaxed">Change size availability, toggle featured status, or remove products.</p>
+            <div className="inline-block bg-[#b08968] text-white text-xs font-medium px-5 py-2 rounded-md">
               MANAGE
+            </div>
+          </Link>
+
+          <Link href="/admin/categories" className="group block bg-white p-6 md:p-8 rounded-xl border border-[#F0EBE1] hover:shadow-md hover:border-[#E5E0D8] transition-all">
+            <div className="w-12 h-12 bg-[#FDFBF7] text-[#C17C6E] rounded-full flex items-center justify-center mb-6 border border-[#F0EBE1] group-hover:bg-[#C17C6E] group-hover:text-white transition-colors">
+              <span className="text-lg">🏷️</span>
+            </div>
+            <h2 className="text-lg font-medium mb-2">Manage Categories</h2>
+            <p className="text-xs text-gray-500 mb-6 leading-relaxed">Add new categories (e.g. Bedsheets, 3 Piece), rename, or delete existing ones.</p>
+            <div className="inline-block bg-[#8B7355] text-white text-xs font-medium px-5 py-2 rounded-md">
+              CATEGORIES
             </div>
           </Link>
         </div>

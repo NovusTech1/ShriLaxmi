@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { verifySessionCookie } from '@/lib/session';
-import { supabaseAdmin } from '@/lib/supabase/server';
+import { hasSupabaseConfig, supabaseAdmin } from '@/lib/supabase/server';
 
 async function isAuthorized() {
   const cookieStore = await cookies();
@@ -49,6 +49,10 @@ export async function POST(request) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
+  if (!hasSupabaseConfig) {
+    return NextResponse.json({ error: 'Supabase is not configured. Add your environment variables first.' }, { status: 503 });
+  }
+
   try {
     const formData = await request.formData();
 
@@ -63,10 +67,13 @@ export async function POST(request) {
       : [];
 
     const sizesData = formData.get('sizes');
-    let sizes = { S: false, M: false, L: false, XL: false, XXL: false, '3XL': false };
+    let sizes = { S: false, M: false, L: false, XL: false, XXL: false, '3XL': false, 'Free Size': false };
     if (sizesData && sizesData !== 'undefined') {
       try {
-        sizes = JSON.parse(sizesData);
+        const parsed = JSON.parse(sizesData);
+        if (parsed && typeof parsed === 'object') {
+          sizes = parsed;
+        }
       } catch {
         console.error('Failed to parse sizes');
       }
